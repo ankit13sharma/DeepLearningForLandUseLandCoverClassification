@@ -7,3 +7,6 @@ train_lulc.ipynb
 predict_multiclass_18_10_20.ipynb
 train_multiclass_18_10_20.ipynb
 model_1.h5
+label.tif
+image2.rrd
+image2.aux
