@@ -2,4 +2,4 @@
 
 Sample output
 
-<img src = "label-rgb.tif" />
+<img src = "landuse-landcover.JPG" />
