@@ -29,7 +29,7 @@ from tensorflow.keras.models import *
 from tensorflow.keras.layers import *
 from tensorflow.keras import backend as K
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping 
-from tensorflow.keras.metrics import CategoricalAccuracy,Accuracy,MeanIoU
+from tensorflow.keras.metrics import Accuracy,MeanIoU
 from tensorflow.keras.utils import to_categorical
 # from h2o4gpu.solvers.kmeans import KMeans as kmeans
 import utils as utils
