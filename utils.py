@@ -9,10 +9,11 @@ import numpy as np
 import random
 import os
 import re
+import tensorflow as tf
 from tensorflow.keras import backend as K
 from sklearn.cluster import KMeans as kmeans
 
-def shuffle_list(*ls, seeds =78):
+def shuffle_list(*ls, seeds =99):
   random.seed(seeds)
   l =list(zip(*ls))
 
@@ -37,7 +38,7 @@ def raster2array(raster, bnd,x,y,wndox,wndoy):
         rr[:,:,b] = band.ReadAsArray(x, y, wndox, wndoy)
         noDataValue = band.GetNoDataValue()
     rr[rr == noDataValue] = newValue
-    return rr
+    return rr.astype(np.uint8)
 
 def sorted_aphanumeric(data):
     convert = lambda text: int(text) if text.isdigit() else text.lower()
@@ -147,32 +148,32 @@ def apply_fetch_tiles_at_random(filepath,img_id,tile_id,y_coord,x_coord,starting
 
 
 def iou(y_true, y_pred):
-    smooth = 1
-    intersection = K.sum((y_true * y_pred), axis = (0,1,2,3))
-    union = K.sum((y_true + y_pred), axis = (0,1,2,3)) - K.sum((y_true * y_pred), axis = (0,1,2,3))
+    smooth = 1e-6
+    intersection = K.sum((y_true * y_pred), axis = (0,1,2))
+    union = K.sum((y_true + y_pred), axis = (0,1,2)) - K.sum((y_true * y_pred), axis = (0,1,2))
     
     iu = ((intersection + smooth)/ (union + smooth))
     
-    return iu
+    return K.mean(iu)
     
 
-def iou_loss(y_true, y_pred,ncl = 9.0):
+def iou_loss(y_true, y_pred,ncl = 1.0):
     return (ncl-iou(y_true, y_pred))
 
 
  
 def dice(y_true, y_pred):
-    smooth1 = 1
+    smooth1 = 1e-6
     
-    num1 = K.sum((y_true *  y_pred), axis = (0,1,2,3))
-    dnm1 = K.sum((y_true +  y_pred), axis = (0,1,2,3))     
+    num1 = K.sum((y_true *  y_pred), axis = (0,1,2))
+    dnm1 = K.sum((y_true +  y_pred), axis = (0,1,2))     
     
     f1 = ((2*num1 + smooth1)/ (dnm1 + smooth1)) 
     
-    return f1
+    return K.sum(f1)
  
-def dice_loss(y_true, y_pred,ncl = 9.0):
-    return (ncl-dice(y_true, y_pred))
+def dice_loss(y_true, y_pred,ncl = 4.0):
+    return (ncl-dice(y_true, y_pred) + tf.keras.losses.categorical_crossentropy(y_true, y_pred))
 
 def generate_labels(image,ndvi,ndwi):
         img1 = process_kmeans2(image)
@@ -237,13 +238,11 @@ def add_veg_water_index(image):
     ndwi = np.divide(num2,dnm2, where = (dnm2!=0), dtype = np.float64)
 
     del num1,num2,dnm1,dnm2
-    ndvi[ndvi>1] = 0
-    ndvi[ndvi<-1] = 0
-    ndwi[ndwi>1] = 0
-    ndwi[ndwi<-1] = 0
+    ndvi[ndvi<0] = 0
+    ndwi[ndwi<0] = 0
 
-    image2[:,:,4] = ndvi*127.5
-    image2[:,:,5] = ndwi*127.5
+    image2[:,:,4] = ndvi*255
+    image2[:,:,5] = ndwi*255
 
     return image2,ndvi,ndwi
 
@@ -253,7 +252,8 @@ def raster2arr(raster, bnd,x,y,wndo):
     for b in range(bnd):
         band = raster.GetRasterBand(b+1)
         img = band.ReadAsArray(x, y, wndo, wndo)
-        noDataValue = band.GetNoDataValue()
+#         noDataValue = band.GetNoDataValue()
+        noDataValue = 255
         img[img == noDataValue] = newValue
         rr[:,:,b] = img
     return rr.astype(np.uint8)
