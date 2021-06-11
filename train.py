@@ -29,10 +29,8 @@ from tensorflow.keras.models import *
 from tensorflow.keras.layers import *
 from tensorflow.keras import backend as K
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping 
-# from keras.utils.np_utils import to_categorical 
+from tensorflow.keras.metrics import CategoricalAccuracy,Accuracy,MeanIoU
 from tensorflow.keras.utils import to_categorical
-from tensorflow.keras.metrics import Accuracy 
-from tensorflow.keras.metrics import MeanIoU 
 # from h2o4gpu.solvers.kmeans import KMeans as kmeans
 import utils as utils
 
@@ -80,12 +78,12 @@ def img_generator(image_path,label_path,image_id,tile_id,y_coord,x_coord,batch):
     current_image_id = 0
     while (current_image_id<total_images):
         
-        random.shuffle(all_images_id)
+#         random.shuffle(all_images_id)
         
         batch_input = np.zeros((batch,size,size,6))
         batch_output = np.zeros((batch,size,size,4))
         
-        m = 0
+        
         for batch_index in range(batch):
             index = all_images_id[current_image_id]
             x = x_coord[index]
@@ -96,15 +94,15 @@ def img_generator(image_path,label_path,image_id,tile_id,y_coord,x_coord,batch):
             raster = gdal.Open(image_path[img_id])
             img = utils.raster2array(raster,4,x,y,size,size)
             raster = None
-            batch_input[m,:,:,:],ndvi,ndwi = utils.add_veg_water_index(img)
-            
+            batch_input[batch_index,:,:,:],ndvi,ndwi = utils.add_veg_water_index(img)
+     
             raster = gdal.Open(label_path[img_id])
             clt = utils.raster2array(raster,1,x,y,size,size)
-            batch_output[m,:,:,:] = (to_categorical(clt,num_classes=4)) 
+            raster = None
+            batch_output[batch_index,:,:,:] =  255.*to_categorical(clt,num_classes=4)
             del img,clt
-    
+            current_image_id += 1
             
-        current_image_id += 1
         return (com_gen(batch_input, batch_output))
     
 def msk_generator(image_path,label_path,image_id,tile_id,y_coord,x_coord,batch):    
@@ -135,12 +133,12 @@ def msk_generator(image_path,label_path,image_id,tile_id,y_coord,x_coord,batch):
     current_image_id = 0
     while (current_image_id<total_images):
         
-        random.shuffle(all_images_id)
+#         random.shuffle(all_images_id)
         
         batch_input = np.zeros((batch,size,size,6))
         batch_output = np.zeros((batch,size,size,4))
         
-        m = 0
+        
         for batch_index in range(batch):
             index = all_images_id[current_image_id]
             x = x_coord[index]
@@ -152,14 +150,15 @@ def msk_generator(image_path,label_path,image_id,tile_id,y_coord,x_coord,batch):
 
             img = utils.raster2array(raster,4,x,y,size,size)
             raster = None           
-            batch_input[m,:,:,:],ndvi,ndwi = utils.add_veg_water_index(img)
+            batch_input[batch_index,:,:,:],ndvi,ndwi = utils.add_veg_water_index(img)
             
             raster = gdal.Open(label_path[img_id])
             clt = utils.raster2array(raster,1,x,y,size,size)
-            batch_output[m,:,:,:] = (to_categorical(clt,num_classes=4)) 
+            raster =None
+            batch_output[batch_index,:,:,:] = 255.*to_categorical(clt,num_classes=4)
             del img,clt
-    
-        current_image_id += 1
+            current_image_id += 1
+        
         return (com_gen(batch_input, batch_output))
 
 
@@ -169,122 +168,52 @@ def msk_generator(image_path,label_path,image_id,tile_id,y_coord,x_coord,batch):
 size = 256
 def unet(size, lri, input_height = size, input_width = size, nClasses = 4):
 
-    K.set_image_data_format('channels_last')
-    
     input_size = (input_width, input_height, 6)
     input1 = Input(shape = input_size)
-    n = 64
-    drate1 = 0
-    drate2 = 0
-    drate3 = 0
-    drate4 = 0
-    drate5 = 0.5
-    lmbd = 0
-    #bn01 = ( BatchNormalization())(input1) 
-    
-    #drop0 = Dropout(0)(input1)
-    conv1 = Conv2D(n, (3,3), kernel_regularizer=l2(lmbd), activation = 'relu', padding = 'same', data_format= "channels_last", kernel_initializer = 'he_normal')(input1)
-    drop1 = Dropout(drate1)(conv1)
-    bn11 = ( BatchNormalization())(drop1) 
+    conv1 = Conv2D(64, (3,3), activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(input1)
+    conv1 = Conv2D(64, (3,3), activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv1)
+    pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
+    conv2 = Conv2D(128, (3,3), activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(pool1)
+    conv2 = Conv2D(128, (3,3), activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv2)
+    pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
+    conv3 = Conv2D(256, (3,3), activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(pool2)
+    conv3 = Conv2D(256, (3,3), activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv3)
+    pool3 = MaxPooling2D(pool_size=(2, 2))(conv3)
+    conv4 = Conv2D(512, (3,3), activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(pool3)
+    conv4 = Conv2D(512, (3,3), activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv4)
+    drop4 = Dropout(0.5)(conv4)
+    pool4 = MaxPooling2D(pool_size=(2, 2))(drop4)
 
-    conv1 = Conv2D(n, (3,3), kernel_regularizer=l2(lmbd), activation = 'relu', padding = 'same', data_format= "channels_last", kernel_initializer = 'he_normal')(bn11)
-    drop12 = Dropout(drate2)(conv1)
-    bn12 = ( BatchNormalization())(drop12) 
+    conv5 = Conv2D(1024, (3,3), activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(pool4)
+    conv5 = Conv2D(1024, (3,3), activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv5)
+    drop5 = Dropout(0.5)(conv5)
 
-    pool1 = MaxPooling2D(pool_size=(2, 2))(bn12)
-    
-    conv2 = Conv2D(n*2, (3,3), kernel_regularizer=l2(lmbd), activation = 'relu', padding = 'same',  data_format= "channels_last", kernel_initializer = 'he_normal')(pool1)
-    drop2 = Dropout(drate1)(conv2) 
-    bn21 = ( BatchNormalization())(drop2)
+    up6 = Conv2D(512, (2,2), activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling2D(size = (2,2))(drop5))
+    merge6 = concatenate([drop4,up6], axis = 3)
+    conv6 = Conv2D(512, (3,3), activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge6)
+    conv6 = Conv2D(512, (3,3), activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv6)
 
-    conv2 = Conv2D(n*2, (3,3), kernel_regularizer=l2(lmbd), activation = 'relu', padding = 'same',  data_format= "channels_last", kernel_initializer = 'he_normal')(bn21)
-    drop22 = Dropout(drate2)(conv2)  
-    bn22 = ( BatchNormalization())(drop22)   
-    
-    pool2 = MaxPooling2D(pool_size=(2, 2))(bn22)
-    
-    conv3 = Conv2D(n*4, (3,3), kernel_regularizer=l2(lmbd), activation = 'relu', padding = 'same', data_format= "channels_last", kernel_initializer = 'he_normal')(pool2)
-    drop3 = Dropout(drate1)(conv3)
-    bn31 = ( BatchNormalization())(drop3)
+    up7 = Conv2D(256, (2,2), activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling2D(size = (2,2))(conv6))
+    merge7 = concatenate([conv3,up7], axis = 3)
+    conv7 = Conv2D(256, (3,3), activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge7)
+    conv7 = Conv2D(256, (3,3), activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv7)
 
-    conv3 = Conv2D(n*4, (3,3), kernel_regularizer=l2(lmbd), activation = 'relu', padding = 'same', data_format= "channels_last", kernel_initializer ='he_normal')(bn31)
-    drop32 = Dropout(drate2)(conv3)
-    bn32 = ( BatchNormalization())(drop32) 
-    
-    pool3 = MaxPooling2D(pool_size=(2, 2))(bn32)
-    
-    conv4 = Conv2D(n*8, (3,3), kernel_regularizer=l2(lmbd), activation = 'relu', padding = 'same', data_format= "channels_last", kernel_initializer ='he_normal')(pool3)
-    drop4 = Dropout(drate1)(conv4)
-    bn41 = ( BatchNormalization())(drop4) 
+    up8 = Conv2D(128, (2,2), activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling2D(size = (2,2))(conv7))
+    merge8 = concatenate([conv2,up8], axis = 3)
+    conv8 = Conv2D(128, (3,3), activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge8)
+    conv8 = Conv2D(128, (3,3), activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv8)
 
-    conv4 = Conv2D(n*8, (3,3), kernel_regularizer=l2(lmbd), activation = 'relu', padding = 'same', data_format= "channels_last", kernel_initializer ='he_normal')(bn41)
-    drop42 = Dropout(drate5)(conv4)
-    bn42 = ( BatchNormalization())(drop42) 
-    
-    pool4 = MaxPooling2D(pool_size=(2, 2))(bn42)
-   
-    conv5 = Conv2D(n*16, (3,3), kernel_regularizer=l2(lmbd), activation = 'relu', padding = 'same', data_format= "channels_last", kernel_initializer ='he_normal')(pool4)
-    drop5 = Dropout(drate5)(conv5)
-    bn51 = ( BatchNormalization())(drop5) 
-    conv5 = Conv2D(n*16, (3,3), kernel_regularizer=l2(lmbd), activation = 'relu', padding = 'same', data_format= "channels_last", kernel_initializer ='he_normal')(bn51)
-    drop52 = Dropout(drate4)(conv5)
-    bn52 = ( BatchNormalization())(drop52) 
-    
-    up6 = Conv2D(n*8, (2,2), kernel_regularizer=l2(lmbd), activation = 'relu', padding = 'same',data_format= "channels_last",  kernel_initializer ='he_normal')(UpSampling2D(size = (2,2))(bn52))
-    merge6 = concatenate([bn42,up6], axis = 3)
-    #merge6 = concatenate([conv4,up6], axis = 3)
-    
-    conv6 = Conv2D(n*8, (3,3), kernel_regularizer=l2(lmbd), activation = 'relu', padding = 'same', data_format= "channels_last", kernel_initializer ='he_normal')(merge6)
-    drop6 = Dropout(drate3)(conv6)
-    bn61 = ( BatchNormalization())(drop6) 
+    up9 = Conv2D(64, (2,2), activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling2D(size = (2,2))(conv8))
+    merge9 = concatenate([conv1,up9], axis = 3)
+    conv9 = Conv2D(64, (3,3), activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge9)
+    conv9 = Conv2D(64, (3,3), activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv9)
 
-    conv6 = Conv2D(n*8, (3,3), kernel_regularizer=l2(lmbd), activation = 'relu', padding = 'same', data_format= "channels_last", kernel_initializer ='he_normal')(bn61)
-    drop62 = Dropout(drate4)(conv6)
-    bn62 = ( BatchNormalization())(drop62) 
-    
-    up7 = Conv2D(n*4, (2,2), kernel_regularizer=l2(lmbd), activation = 'relu', padding = 'same', data_format= "channels_last", kernel_initializer ='he_normal')(UpSampling2D(size = (2,2))(bn62))
-    
-    merge7 = concatenate([bn32,up7], axis = 3)
-    
-    
-    conv7 = Conv2D(n*4, (3,3), kernel_regularizer=l2(lmbd), activation = 'relu', padding = 'same', data_format= "channels_last", kernel_initializer ='he_normal')(merge7)
-    drop7 = Dropout(drate3)(conv7)
-    bn71 = ( BatchNormalization())(drop7) 
+    conv10 = Conv2D(nClasses, (1,1), activation = 'softmax',padding = 'same', kernel_initializer = 'he_normal')(conv9)
 
-    conv7 = Conv2D(n*4, (3,3), kernel_regularizer=l2(lmbd), activation = 'relu', padding = 'same', data_format= "channels_last", kernel_initializer ='he_normal')(bn71)
-    drop72 = Dropout(drate4)(conv7)
-    bn72 = ( BatchNormalization())(drop72) 
-    
-
-    up8 = Conv2D(n*2, (2,2), kernel_regularizer=l2(lmbd), activation = 'relu', padding = 'same', data_format= "channels_last", kernel_initializer ='he_normal')(UpSampling2D(size = (2,2))(bn72))
-    
-    
-    merge8 = concatenate([bn22,up8], axis = 3)
-    
-    conv8 = Conv2D(n*2, (3,3), kernel_regularizer=l2(lmbd), activation = 'relu', padding = 'same', data_format= "channels_last", kernel_initializer ='he_normal')(merge8)
-    drop8 = Dropout(drate3)(conv8)
-    bn81 = ( BatchNormalization())(drop8) 
-
-    conv8 = Conv2D(n*2, (3,3), kernel_regularizer=l2(lmbd), activation = 'relu', padding = 'same', data_format= "channels_last", kernel_initializer ='he_normal')(bn81)
-    drop82 = Dropout(drate4)(conv8)
-    bn82 = ( BatchNormalization())(drop82) 
-    
-    up9 = Conv2D(n, (2,2), kernel_regularizer=l2(lmbd), activation = 'relu', padding = 'same', data_format= "channels_last", kernel_initializer ='he_normal')(UpSampling2D(size = (2,2))(bn82))
-    merge9 = concatenate([bn12,up9], axis = 3)
-    
-    conv9 = Conv2D(n, (3,3), kernel_regularizer=l2(lmbd), activation = 'relu', padding = 'same', data_format= "channels_last", kernel_initializer ='he_normal')(merge9)
-    drop9 = Dropout(drate3)(conv9)
-    bn91 = ( BatchNormalization())(drop9) 
-
-    conv9 = Conv2D(n, (3,3), kernel_regularizer=l2(lmbd), activation = 'relu', padding = 'same', data_format= "channels_last", kernel_initializer ='he_normal')(bn91)
-    drop92 = Dropout(drate4)(conv9)
-    bn92 = ( BatchNormalization())(drop92) 
-    
-    conv10 = Conv2D(nClasses, (1,1), kernel_regularizer=l2(lmbd), activation = 'softmax', padding = 'same', data_format= "channels_last", kernel_initializer ='he_normal')(bn92)
     model = Model(inputs = input1, outputs = conv10)
-    
-    model.compile(optimizer = Adam(lr  = lri), loss= 'categorical_crossentropy', metrics = ['accuracy'])
-   
+
+    model.compile(optimizer = Adam(lr  = lri), loss= utils.dice_loss, metrics = [MeanIoU(num_classes=4),utils.dice])
+
     return model
 
 
@@ -327,9 +256,9 @@ def training(train_generator,val_generator,steps_train,steps_val,lri = 1e-3,epoc
     model = unet(size, lri)
     model.summary()
     
-    checkpoint = ModelCheckpoint("./model_1.h5", monitor='val_acc', verbose=1, save_best_only=True, save_weights_only=False, mode='max', period=1)
+    checkpoint = ModelCheckpoint("./model_1.h5", monitor='val_loss', verbose=1, save_best_only=True, save_weights_only=True, mode='min', period=1)
     
-    early = EarlyStopping(monitor='val_acc', min_delta=0, patience=25, verbose=1, mode='auto')
+    early = EarlyStopping(monitor='val_loss', min_delta=0, patience=30, verbose=1, mode='min')
     history = model.fit(train_generator, steps_per_epoch = steps_train, epochs = epoch ,verbose = 2, callbacks = [checkpoint, early], validation_data= val_generator, validation_steps = steps_val)    
 
 

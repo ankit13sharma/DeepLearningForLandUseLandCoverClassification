@@ -10,3 +10,8 @@ model_1.h5
 label.tif
 image2.rrd
 image2.aux
+*.img
+image.img
+image.img
+prediction_1-rgb.rrd
+prediction_1-rgb.aux
