@@ -2,3 +2,8 @@
 *.tif filter=lfs diff=lfs merge=lfs -text
 label-rgb.tif filter=lfs diff=lfs merge=lfs -text
 prediction_1-rgb.tif filter=lfs diff=lfs merge=lfs -text
+images/*.tif filter=lfs diff=lfs merge=lfs -text
+images/test/img/image3.tif filter=lfs diff=lfs merge=lfs -text
+/images/test/mask/label3.tif filter=lfs diff=lfs merge=lfs -text
+/images/train/img/image4.tif filter=lfs diff=lfs merge=lfs -text
+/images/train/mask/label4.tif filter=lfs diff=lfs merge=lfs -text
