@@ -115,7 +115,6 @@ def batch_predict(filepath,model,batch,hi=0,wi=0,size = 256):
         label = adjust_height(model,batch,image,label,heights,h,w,d,size)
 
         label = adjust_width(model,batch,image,label,widths,h,w,d,size)
-        print("height and width not equal to size")
     
     img = (image[h-size:h, w-size:w,:])  
     arr = np.zeros((1,size,size,d+2),dtype = np.float64)

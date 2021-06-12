@@ -78,8 +78,6 @@ def img_generator(image_path,label_path,image_id,tile_id,y_coord,x_coord,batch):
     current_image_id = 0
     while (current_image_id<total_images):
         
-#         random.shuffle(all_images_id)
-        
         batch_input = np.zeros((batch,size,size,6))
         batch_output = np.zeros((batch,size,size,4))
         
@@ -132,8 +130,6 @@ def msk_generator(image_path,label_path,image_id,tile_id,y_coord,x_coord,batch):
     
     current_image_id = 0
     while (current_image_id<total_images):
-        
-#         random.shuffle(all_images_id)
         
         batch_input = np.zeros((batch,size,size,6))
         batch_output = np.zeros((batch,size,size,4))
@@ -212,9 +208,11 @@ def unet(size, lri, input_height = size, input_width = size, nClasses = 4):
 
     model = Model(inputs = input1, outputs = conv10)
 
-    model.compile(optimizer = Adam(lr  = lri), loss= utils.dice_loss, metrics = [MeanIoU(num_classes=4),utils.dice])
+    model.compile(optimizer = Adam(lr  = lri), loss= utils.dice_loss, metrics = [utils.iou,utils.dice])
 
     return model
+
+
 
 
 # In[ ]:
