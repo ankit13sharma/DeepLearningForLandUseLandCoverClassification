@@ -2,4 +2,4 @@
 
 Sample output
 
-<img src = "landuse-landcover.JPG" />
+<img src = "prediction-rgb.tif" />
